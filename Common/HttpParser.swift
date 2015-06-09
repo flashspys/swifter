@@ -8,19 +8,24 @@ import Foundation
 
 class HttpParser {
     
+    enum HTTPParserError: ErrorType {
+        case recvFailed
+        case IOError
+        case InvalidStatusLine(line: String)
+    }
+    
     func err(reason: String) -> NSError {
         return NSError(domain: "HttpParser", code: 0, userInfo: [NSLocalizedDescriptionKey : reason])
     }
     
     func nextHttpRequest(socket: CInt) throws -> HttpRequest {
-        var error: NSError! = NSError(domain: "Migrator", code: 0, userInfo: nil)
         do {
             let statusLine = try nextLine(socket)
             let statusTokens = split(statusLine.characters, isSeparator: { $0 == " " }).map { String($0) }
             print(statusTokens)
             if ( statusTokens.count < 3 ) {
-                # /* TODO: Finish migration: rewrite code to move the next statement out of enclosing do/catch */
-                throw err("Invalid status line: \(statusLine)")
+                
+                throw HTTPParserError.InvalidStatusLine(line: statusLine) //err("Invalid status line: \(statusLine)")
             }
             let method = statusTokens[0]
             let path = statusTokens[1]
@@ -31,28 +36,27 @@ class HttpParser {
                 // TODO detect content-type and handle:
                 // 'application/x-www-form-urlencoded' -> Dictionary
                 // 'multipart' -> Dictionary
-                if let contentSize = Int(headers["content-length"]?) {
+                if let contentSize = Int(headers["content-length"]!) {
                     let body: String?
                     do {
                         body = try nextBody(socket, size: contentSize)
-                    } catch var error1 as NSError {
-                        error = error1
+                    } catch let error as NSError {
                         body = nil
+                        throw error
                     }
                     return HttpRequest(url: path, urlParams: urlParams, method: method, headers: headers, body: body, capturedUrlGroups: [])
                 }
                 return HttpRequest(url: path, urlParams: urlParams, method: method, headers: headers, body: nil, capturedUrlGroups: [])
-            } catch var error1 as NSError {
-                error = error1
+            } catch let error as NSError {
+                throw error
             }
-        } catch var error1 as NSError {
-            error = error1
+        } catch let error as NSError {
+            throw error
         }
-        throw error
     }
     
     private func extractUrlParams(url: String) -> [(String, String)] {
-        if let query = split(url.characters, isSeparator: { $0 == "?" }).map { String($0) }.last {
+        if let query = split(url.characters, isSeparator: { $0 == "?" }).map({ String($0) }).last {
             return split(query.characters, isSeparator: { $0 == "&" }).map { String($0) }.map({ (param:String) -> (String, String) in
                 let tokens = split(param.characters, isSeparator: { $0 == "=" }).map { String($0) }
                 if tokens.count >= 2 {
@@ -72,7 +76,7 @@ class HttpParser {
         while ( counter < size ) {
             let c = nextInt8(socket)
             if ( c < 0 ) {
-                throw err("IO error while reading body")
+                throw HTTPParserError.IOError // err("IO error while reading body")
             }
             body.append(UnicodeScalar(c))
             counter++;
@@ -80,10 +84,11 @@ class HttpParser {
         return body
     }
     
-    private func nextHeaders(socket: CInt) throws -> Dictionary<String, String> {
-        var error: NSError! = NSError(domain: "Migrator", code: 0, userInfo: nil)
+    private func nextHeaders(socket: CInt) throws -> Dictionary<String, String>  {
         var headers = Dictionary<String, String>()
-        while let headerLine = nextLine(socket) {
+        
+        while let headerLine = try nextLine(socket) as String? {
+            
             if ( headerLine.isEmpty ) {
                 return headers
             }
@@ -99,7 +104,7 @@ class HttpParser {
                 }
             }
         }
-        throw error
+        return headers;
     }
 
     private func nextInt8(socket: CInt) -> Int {
@@ -117,7 +122,7 @@ class HttpParser {
             if ( n > 13 /* CR */ ) { characters.append(Character(UnicodeScalar(n))) }
         } while ( n > 0 && n != 10 /* NL */)
         if ( n == -1 && characters.isEmpty ) {
-            throw Socket.lastErr("recv(...) failed.")
+            throw HTTPParserError.recvFailed //Socket.lastErr("recv(...) failed.")
         }
         return characters
     }
