@@ -26,7 +26,7 @@ func demoServer(publicDir: String?) -> HttpServer {
     }
     server["/params/(.+)/(.+)"] = { request in
         var capturedGroups = ""
-        for (index, group) in enumerate(request.capturedUrlGroups) {
+        for (index, group) in request.capturedUrlGroups.enumerate() {
             capturedGroups += "Expression group \(index) : \(group)<br>"
         }
         return .OK(.HTML("Url: \(request.url)<br>Method: \(request.method)<br>\(capturedGroups)"))
@@ -71,7 +71,7 @@ func demoServer(publicDir: String?) -> HttpServer {
     }
     server["/"] = { request in
         var listPage = "Available services:<br><ul>"
-        enumerate(server.routes())
+        server.routes().enumerate()
         for item in server.routes() {
             listPage += "<li><a href=\"\(item)\">\(item)</a></li>"
         }

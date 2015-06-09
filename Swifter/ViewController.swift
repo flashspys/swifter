@@ -15,8 +15,10 @@ class ViewController: UIViewController {
         let server = demoServer(NSBundle.mainBundle().resourcePath)
         self.server = server
         var error: NSError?
-        if !server.start(error: &error) {
-            println("Server start error: \(error)")
+        do {
+            try server.start(error: &error)
+        } catch _ {
+            print("Server start error: \(error)")
         }
     }
 
