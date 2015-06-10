@@ -36,15 +36,17 @@ class HttpParser {
                 // TODO detect content-type and handle:
                 // 'application/x-www-form-urlencoded' -> Dictionary
                 // 'multipart' -> Dictionary
-                if let contentSize = Int(headers["content-length"]!) {
-                    let body: String?
-                    do {
-                        body = try nextBody(socket, size: contentSize)
-                    } catch let error as NSError {
-                        body = nil
-                        throw error
+                if let contentSizeString = headers["content-length"]{
+                    if let contentSize = Int(contentSizeString) {
+                        let body: String?
+                        do {
+                            body = try nextBody(socket, size: contentSize)
+                        } catch let error as NSError {
+                            body = nil
+                            throw error
+                        }
+                        return HttpRequest(url: path, urlParams: urlParams, method: method, headers: headers, body: body, capturedUrlGroups: [])
                     }
-                    return HttpRequest(url: path, urlParams: urlParams, method: method, headers: headers, body: body, capturedUrlGroups: [])
                 }
                 return HttpRequest(url: path, urlParams: urlParams, method: method, headers: headers, body: nil, capturedUrlGroups: [])
             } catch let error as NSError {
@@ -86,6 +88,7 @@ class HttpParser {
     
     private func nextHeaders(socket: CInt) throws -> Dictionary<String, String>  {
         var headers = Dictionary<String, String>()
+        
         
         while let headerLine = try nextLine(socket) as String? {
             
