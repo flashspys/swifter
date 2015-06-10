@@ -33,17 +33,21 @@ class HttpServer
         
     func routes() -> [String] { return handlers.map({ $0.0.pattern }) }
     
-    func start(listenPort: in_port_t = 8080) throws {
-        var error: NSError! = NSError(domain: "Migrator", code: 0, userInfo: nil)
+    func start(listenPort: in_port_t = 8080) -> Bool {
+        
         releaseAcceptSocket()
         do {
             let socket = try Socket.tcpForListen(listenPort)
             acceptSocket = socket
+            
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), {
-                while let socket = Socket.acceptClientSocket(self.acceptSocket) {
-                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), {
+                () -> Void in
+                
+                do {
+                    while let socket = try Socket.acceptClientSocket(self.acceptSocket) as CInt? {
+                        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), {})
                         let parser = HttpParser()
-                        while let request = parser.nextHttpRequest(socket) {
+                        while let request = try parser.nextHttpRequest(socket) as HttpRequest? {
                             let keepAlive = parser.supportsKeepAlive(request.headers)
                             if let (expression, handler) = self.findHandler(request.url) {
                                 let capturedUrlsGroups = self.captureExpressionGroups(expression, value: request.url)
@@ -55,15 +59,19 @@ class HttpServer
                             if !keepAlive { break }
                         }
                         Socket.release(socket)
-                    })
+                        
+                    }
+                    self.releaseAcceptSocket()
+                } catch {
+                    return
                 }
-                self.releaseAcceptSocket()
-            })
-            return
-        } catch var error1 as NSError {
-            error = error1
+                
+        })
+        
+        } catch {
+            return false
         }
-        throw error
+        return true
     }
     
     func findHandler(url:String) -> (NSRegularExpression, Handler)? {
