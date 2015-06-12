@@ -52,7 +52,7 @@ func demoServer(publicDir: String?) -> HttpServer {
             case "GET":
                 if let rootDir = publicDir {
                     if let html = NSData(contentsOfFile:"\(rootDir)/login.html") {
-                        return .RAW(200, html)
+                        return .RAW(200, "OK", nil, html)
                     } else {
                         return .NotFound
                     }

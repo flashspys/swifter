@@ -13,7 +13,7 @@ class HttpHandlers {
             if let localPath = request.capturedUrlGroups.first {
                 let filesPath = dir.stringByExpandingTildeInPath.stringByAppendingPathComponent(localPath)
                 if let fileBody = NSData(contentsOfFile: filesPath) {
-                    return HttpResponse.RAW(200, fileBody)
+                    return HttpResponse.RAW(200, "OK", nil, fileBody)
                 }
             }
             return HttpResponse.NotFound
@@ -38,7 +38,7 @@ class HttpHandlers {
                         }
                     } else {
                         if let fileBody = NSData(contentsOfFile: filePath) {
-                            return HttpResponse.RAW(200, fileBody)
+                            return HttpResponse.RAW(200, "OK", nil, fileBody)
                         }
                     }
                 }

@@ -6,6 +6,8 @@
 
 import Foundation
 
+func +=<K, V> (inout left: [K : V], right: [K : V]) { for (k, v) in right { left[k] = v } }
+
 enum HttpResponseBody {
     
     case JSON(AnyObject)
@@ -24,13 +26,13 @@ enum HttpResponseBody {
                     if let nsString = NSString(data: json, encoding: NSUTF8StringEncoding) {
                         return nsString as String
                     }
-                } catch var error as NSError {
+                } catch let error as NSError {
                     serializationError = error
                 }
                 return "Serialisation error: \(serializationError)"
             }
             return "Invalid object to serialise."
-        case .XML(let data):
+        case .XML( _):
             return "XML serialization not supported."
         case .PLIST(let object):
             let format = NSPropertyListFormat.XMLFormat_v1_0
@@ -41,7 +43,7 @@ enum HttpResponseBody {
                     if let nsString = NSString(data: plist, encoding: NSUTF8StringEncoding)  {
                         return nsString as String
                     }
-                } catch var error as NSError {
+                } catch let error as NSError {
                     serializationError = error
                 }
                 return "Serialisation error: \(serializationError)"
@@ -61,7 +63,7 @@ enum HttpResponse {
     case MovedPermanently(String)
     case BadRequest, Unauthorized, Forbidden, NotFound
     case InternalServerError
-    case RAW(Int, NSData)
+    case RAW(Int, String, [String: String]?, NSData)
     
     func statusCode() -> Int {
         switch self {
@@ -74,22 +76,22 @@ enum HttpResponse {
         case .Forbidden             : return 403
         case .NotFound              : return 404
         case .InternalServerError   : return 500
-        case .RAW(let code, _)      : return code
+        case .RAW(let code, _, _, _)      : return code
         }
     }
     
     func reasonPhrase() -> String {
         switch self {
-        case .OK(_)                 : return "OK"
-        case .Created               : return "Created"
-        case .Accepted              : return "Accepted"
-        case .MovedPermanently      : return "Moved Permanently"
-        case .BadRequest            : return "Bad Request"
-        case .Unauthorized          : return "Unauthorized"
-        case .Forbidden             : return "Forbidden"
-        case .NotFound              : return "Not Found"
-        case .InternalServerError   : return "Internal Server Error"
-        case .RAW(_,_)              : return "Custom"
+        case .OK(_)                   : return "OK"
+        case .Created                 : return "Created"
+        case .Accepted                : return "Accepted"
+        case .MovedPermanently        : return "Moved Permanently"
+        case .BadRequest              : return "Bad Request"
+        case .Unauthorized            : return "Unauthorized"
+        case .Forbidden               : return "Forbidden"
+        case .NotFound                : return "Not Found"
+        case .InternalServerError     : return "Internal Server Error"
+        case .RAW(_,let status, _, _) : return status
         }
     }
     
@@ -98,6 +100,10 @@ enum HttpResponse {
         headers["Server"] = "Swifter"
         switch self {
         case .MovedPermanently(let location) : headers["Location"] = location
+        case .RAW(_, _, let customHeaders, _):
+            if let customHeaders = customHeaders {
+                headers += customHeaders
+            }
         default:[]
         }
         return headers
@@ -105,9 +111,10 @@ enum HttpResponse {
     
     func body() -> NSData? {
         switch self {
-        case .OK(let body)      : return body.data()?.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: false)
-        case .RAW(_, let data)  : return data
-        default                 : return nil
+        case .OK(let body)            : return body.data()?.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: false)
+        case .RAW(_, _, _, let data)  : return data
+        default                       : return nil
         }
     }
 }
+
